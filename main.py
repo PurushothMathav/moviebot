@@ -9,9 +9,8 @@ from keep_alive import keep_alive
 keep_alive()
 
 TOKEN = '7932683981:AAFgYo_xLje6dIpMvNsBN4XRwpU677SValk'  # Replace with your bot token
-ADMIN_ID = 1156299794  # Replace with your Telegram user ID
+ADMIN_ID = 1156299794     # Replace with your Telegram user ID
 MOVIE_DB = 'movies.json'  # Local movie data file
-
 
 # === Utilities ===
 
@@ -21,16 +20,12 @@ def load_movies():
     with open(MOVIE_DB, 'r', encoding='utf-8') as f:
         return json.load(f)
 
-
 def save_movies(movies):
     with open(MOVIE_DB, 'w', encoding='utf-8') as f:
         json.dump(movies, f, indent=2, ensure_ascii=False)
 
-
 def format_quality_label(q):
-    # Format download quality nicely (e.g., predvd => PreDVD)
     return q.upper() if q.lower() in ['hd', 'sd'] else q.capitalize()
-
 
 # === Bot Command Handlers ===
 
@@ -41,7 +36,6 @@ def start(update: Update, context: CallbackContext):
         "Admins can add movies with:\n"
         "`/add Title | ImageURL | FileSize | Year | 720p:link,1080p:link,...`",
         parse_mode='Markdown')
-
 
 def add_movie(update: Update, context: CallbackContext):
     if update.effective_user.id != ADMIN_ID:
@@ -55,8 +49,8 @@ def add_movie(update: Update, context: CallbackContext):
             raise ValueError
 
         title, image, size, year, quality_block = [p.strip() for p in parts]
-
         quality_links = {}
+
         for q in quality_block.split(','):
             if ':' in q:
                 quality, link = q.split(':', 1)
@@ -66,9 +60,10 @@ def add_movie(update: Update, context: CallbackContext):
             update.message.reply_text("❗ No valid quality links provided.")
             return
 
+        title_key = f"{title.strip()} ({year.strip()})".lower()
         movies = load_movies()
-        movies[title.lower()] = {
-            'title': title,
+        movies[title_key] = {
+            'title': title.strip(),
             'image': image,
             'size': size,
             'year': year,
@@ -84,34 +79,29 @@ def add_movie(update: Update, context: CallbackContext):
             "/add Title | ImageURL | FileSize | Year | 720p:link,1080p:link,..."
         )
 
-
 def get_movie(update: Update, context: CallbackContext):
     if len(context.args) == 0:
-        update.message.reply_text("❗ Usage: `/get Movie Name`",
-                                  parse_mode="Markdown")
+        update.message.reply_text("❗ Usage: `/get Movie Name`", parse_mode="Markdown")
         return
 
     query = " ".join(context.args).lower()
     movies = load_movies()
 
-    all_titles = list(movies.keys())
-    matches = difflib.get_close_matches(query, all_titles, n=5, cutoff=0.4)
+    matches = [key for key in movies.keys() if query in key]
 
     if not matches:
         update.message.reply_text("❌ No movie found. Try a different name.")
     elif len(matches) == 1:
         send_movie(update, context, movies[matches[0]])
     else:
-        # Multiple matches found
         keyboard = [[
-            InlineKeyboardButton(movies[m]["title"],
+            InlineKeyboardButton(f"{movies[m]['title']} ({movies[m].get('year', 'Unknown')})",
                                  callback_data=f"choose::{m}")
         ] for m in matches]
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text(
             "🎯 Multiple matches found. Please choose one:",
             reply_markup=reply_markup)
-
 
 def send_movie(update: Update, context: CallbackContext, movie):
     keyboard = [[
@@ -137,7 +127,6 @@ def send_movie(update: Update, context: CallbackContext, movie):
                                    parse_mode="Markdown",
                                    reply_markup=reply_markup)
 
-
 def handle_callback(update: Update, context: CallbackContext):
     query_data = update.callback_query.data
     if query_data.startswith("choose::"):
@@ -147,11 +136,8 @@ def handle_callback(update: Update, context: CallbackContext):
         if movie:
             send_movie(update, context, movie)
 
-
 def unknown_command(update: Update, context: CallbackContext):
-    update.message.reply_text("❓ Unknown command. Use `/get Movie Name`",
-                              parse_mode="Markdown")
-
+    update.message.reply_text("❓ Unknown command. Use `/get Movie Name`", parse_mode="Markdown")
 
 # === Main ===
 
@@ -166,11 +152,10 @@ def main():
     dp.add_handler(CommandHandler("get", get_movie))
     dp.add_handler(CallbackQueryHandler(handle_callback))
     dp.add_handler(MessageHandler(Filters.command, unknown_command))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, lambda u, c: None))  # Ignore other text
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, lambda u, c: None))
 
     updater.start_polling()
     updater.idle()
-
 
 if __name__ == '__main__':
     main()
