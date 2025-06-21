@@ -87,7 +87,7 @@ def get_movie(update: Update, context: CallbackContext):
     query = " ".join(context.args).lower()
     movies = load_movies()
 
-    matches = [key for key in movies.keys() if query in key]
+    matches = [key for key in movies if query in key.lower() or query in movies[key]['title'].lower()]
 
     if not matches:
         update.message.reply_text("❌ No movie found. Try a different name.")
