@@ -12,8 +12,8 @@ TOKEN = '7932683981:AAFgYo_xLje6dIpMvNsBN4XRwpU677SValk'  # Replace with your bo
 ADMIN_ID = 1156299794  # Replace with your Telegram user ID
 MOVIE_DB = 'movies.json'  # Local movie data file
 
-# === Utilities ===
 
+# === Utilities ===
 
 def load_movies():
     if not os.path.exists(MOVIE_DB):
@@ -27,8 +27,12 @@ def save_movies(movies):
         json.dump(movies, f, indent=2, ensure_ascii=False)
 
 
-# === Bot Command Handlers ===
+def format_quality_label(q):
+    # Format download quality nicely (e.g., predvd => PreDVD)
+    return q.upper() if q.lower() in ['hd', 'sd'] else q.capitalize()
 
+
+# === Bot Command Handlers ===
 
 def start(update: Update, context: CallbackContext):
     update.message.reply_text(
@@ -56,7 +60,7 @@ def add_movie(update: Update, context: CallbackContext):
         for q in quality_block.split(','):
             if ':' in q:
                 quality, link = q.split(':', 1)
-                quality_links[quality.strip()] = link.strip()
+                quality_links[quality.strip().lower()] = link.strip()
 
         if not quality_links:
             update.message.reply_text("❗ No valid quality links provided.")
@@ -110,9 +114,11 @@ def get_movie(update: Update, context: CallbackContext):
 
 
 def send_movie(update: Update, context: CallbackContext, movie):
-    keyboard = [[InlineKeyboardButton(f"🎥 Download {q}", url=link)]
-                for q, link in movie["links"].items()]
+    keyboard = [[
+        InlineKeyboardButton(f"🎥 Download {format_quality_label(q)}", url=link)
+    ] for q, link in movie["links"].items()]
     reply_markup = InlineKeyboardMarkup(keyboard)
+
     caption = (f"🎬 *{movie['title']}*\n"
                f"📅 Release: {movie.get('year', 'Unknown')}\n"
                f"📦 Size: {movie['size']}")
@@ -149,7 +155,6 @@ def unknown_command(update: Update, context: CallbackContext):
 
 # === Main ===
 
-
 def main():
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
@@ -161,9 +166,7 @@ def main():
     dp.add_handler(CommandHandler("get", get_movie))
     dp.add_handler(CallbackQueryHandler(handle_callback))
     dp.add_handler(MessageHandler(Filters.command, unknown_command))
-    dp.add_handler(
-        MessageHandler(Filters.text & ~Filters.command,
-                       lambda u, c: None))  # Ignore all other text
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, lambda u, c: None))  # Ignore other text
 
     updater.start_polling()
     updater.idle()
